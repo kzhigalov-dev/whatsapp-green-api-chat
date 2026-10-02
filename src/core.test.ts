@@ -63,6 +63,21 @@ describe('GREEN-API contract', () => {
       }),
     ).toThrow();
   });
+  it('calls the native fetch transport without an invalid object receiver', async () => {
+    const nativeFetch = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(function (this: unknown) {
+        if (this !== undefined && this !== globalThis)
+          throw new TypeError('Illegal invocation');
+        return Promise.resolve(new Response('', { status: 401 }));
+      });
+    try {
+      const api = new GreenApi(credentials);
+      await expect(api.connect()).rejects.toMatchObject({ status: 401 });
+    } finally {
+      nativeFetch.mockRestore();
+    }
+  });
   it('uses resolved WhatsApp chatId, JSON POST, and notification DELETE', async () => {
     const requests: { url: string; init?: RequestInit }[] = [];
     const transport = vi.fn(

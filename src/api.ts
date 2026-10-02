@@ -80,7 +80,9 @@ export class GreenApi implements ChatApi {
     if (signal?.aborted) abort();
     const timer = setTimeout(() => controller.abort(), 35_000);
     try {
-      const response = await this.transport(
+      // Native browser fetch rejects a GreenApi instance as its receiver.
+      const transport = this.transport;
+      const response = await transport(
         `${apiUrl}/waInstance${idInstance}/${method}/${encodeURIComponent(apiTokenInstance)}${suffix}`,
         {
           method: verb,
