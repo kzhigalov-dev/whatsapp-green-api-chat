@@ -54,7 +54,7 @@ function Login({ onConnect }: { onConnect: (session: Session) => void }) {
       if (controller.signal.aborted) return;
       const store = new ChatStore(
         window.localStorage,
-        `telegram-chat:v1:${api.credentials.apiUrl}:${api.credentials.idInstance}`,
+        `whatsapp-chat:v1:${api.credentials.apiUrl}:${api.credentials.idInstance}`,
       );
       onConnect({
         api,
@@ -75,7 +75,7 @@ function Login({ onConnect }: { onConnect: (session: Session) => void }) {
         <header className="sidebar-header">
           <div className="brand">
             <Logo small />
-            <strong>Telegram</strong>
+            <strong>WhatsApp</strong>
           </div>
         </header>
         <div className="list-heading">Ваши чаты</div>
@@ -97,9 +97,9 @@ function Login({ onConnect }: { onConnect: (session: Session) => void }) {
         <header className="connection-header">
           <div className="brand mobile-brand">
             <Logo small />
-            <strong>Telegram</strong>
+            <strong>WhatsApp</strong>
           </div>
-          <span className="connection-heading">Подключение к Telegram</span>
+          <span className="connection-heading">Подключение к WhatsApp</span>
           <button className="text-button" onClick={() => setHelp(true)}>
             <HelpCircle size={18} /> Как подключиться
           </button>
@@ -114,7 +114,7 @@ function Login({ onConnect }: { onConnect: (session: Session) => void }) {
                 id="instance"
                 value={idInstance}
                 onChange={(event) => setId(event.target.value)}
-                placeholder="Например, 4100123456"
+                placeholder="Например, 1103123456"
                 inputMode="numeric"
                 autoComplete="off"
                 required
@@ -146,7 +146,7 @@ function Login({ onConnect }: { onConnect: (session: Session) => void }) {
                 id="api-url"
                 value={apiUrl}
                 onChange={(event) => setUrl(event.target.value)}
-                placeholder="https://4100.api.green-api.com"
+                placeholder="https://1103.api.green-api.com"
                 type="url"
                 autoComplete="off"
                 required

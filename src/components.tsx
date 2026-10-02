@@ -14,11 +14,15 @@ export function Logo({ small = false }: { small?: boolean }) {
     <span className={`logo ${small ? 'logo-small' : ''}`} aria-hidden="true">
       <svg viewBox="0 0 64 64">
         <path
-          d="M13 30 51 15 43 49 30 39 23 45 25 34 43 23 29 36Z"
-          fill="currentColor"
+          d="M49 31a17 17 0 0 1-25 15l-12 4 4-12A17 17 0 1 1 49 31Z"
+          fill="none"
           stroke="currentColor"
-          strokeWidth="2"
+          strokeWidth="3"
           strokeLinejoin="round"
+        />
+        <path
+          d="M24 21c-2 0-4 3-4 5 0 7 10 17 18 17 3 0 6-3 6-5l-7-4-3 3c-4-2-7-5-9-9l3-2-4-5Z"
+          fill="currentColor"
         />
       </svg>
     </span>
@@ -110,24 +114,24 @@ export function SetupGuide({ onClose }: { onClose: () => void }) {
   return (
     <Modal title="Подключение GREEN-API" onClose={onClose}>
       <p className="muted">
-        Для реальной переписки понадобится аккаунт Telegram и авторизованный
+        Для реальной переписки понадобится аккаунт WhatsApp и авторизованный
         инстанс.
       </p>
       <ol className="setup-steps">
         <li>
-          <strong>Создайте инстанс Telegram</strong>
+          <strong>Создайте инстанс WhatsApp</strong>
           <p>
             Зарегистрируйтесь в личном кабинете GREEN-API, нажмите «Создать
-            инстанс» и выберите «Telegram: Developer».
+            инстанс» и выберите «WhatsApp: Developer».
           </p>
         </li>
         <li>
           <strong>Привяжите аккаунт</strong>
           <p>
-            В кабинете нажмите «Получить QR-код». На телефоне: Telegram →
-            Настройки → Устройства → Подключить устройство. Отсканируйте код и
-            дождитесь статуса authorized. Если запрошен облачный пароль, введите
-            его только в кабинете GREEN-API.
+            В кабинете нажмите «Получить QR». На телефоне откройте WhatsApp →
+            Связанные устройства → Привязка устройства. На iPhone этот раздел
+            находится в настройках, на Android — в меню с тремя точками.
+            Отсканируйте код и дождитесь статуса authorized.
           </p>
         </li>
         <li>
@@ -148,7 +152,7 @@ export function SetupGuide({ onClose }: { onClose: () => void }) {
       </ol>
       <a
         className="primary button-link"
-        href="https://green-api.com/telegram/docs/before-start/"
+        href="https://green-api.com/docs/before-start/"
         target="_blank"
         rel="noreferrer"
       >

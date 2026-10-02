@@ -79,17 +79,19 @@ export function ChatWorkspace({
       api,
       (body) => {
         store.applyNotification(body, active.current);
-        // Telegram can report failure without an idMessage. Show the error
+        // GREEN-API can report failure without an idMessage. Show the error
         // without guessing which local message it belongs to.
         if (body && typeof body === 'object') {
           const notice = body as Record<string, unknown>;
           if (
             notice.typeWebhook === 'outgoingMessageStatus' &&
             !notice.idMessage &&
-            ['failed', 'noAccount'].includes(String(notice.status))
+            ['failed', 'noAccount', 'suspended', 'yellowCard'].includes(
+              String(notice.status),
+            )
           ) {
             setActionError(
-              'Telegram не смог отправить сообщение. Проверьте переписку, аккаунт получателя и его настройки приватности перед повтором.',
+              'WhatsApp не смог отправить сообщение. Проверьте переписку, аккаунт получателя и ограничения инстанса перед повтором.',
             );
           }
         }
@@ -178,7 +180,7 @@ export function ChatWorkspace({
         <header className="sidebar-header">
           <div className="brand">
             <Logo small />
-            <strong>Telegram</strong>
+            <strong>WhatsApp</strong>
             {demo ? <span className="demo-tag">ДЕМО</span> : null}
           </div>
           <button
@@ -292,7 +294,7 @@ export function ChatWorkspace({
             <span className="connection-dot" />
             <span>Деморежим. Собеседник отвечает автоматически.</span>
             <button onClick={onLogout}>
-              Подключить Telegram <span aria-hidden="true">↗</span>
+              Подключить WhatsApp <span aria-hidden="true">↗</span>
             </button>
           </div>
         ) : null}
@@ -335,7 +337,7 @@ export function ChatWorkspace({
             <p>
               Для новой переписки понадобится
               <br />
-              номер телефона получателя в Telegram.
+              номер телефона получателя в WhatsApp.
             </p>
             <button className="primary" onClick={() => setNewChat(true)}>
               <Plus size={18} />
@@ -400,7 +402,7 @@ function NewChat({
   }
   return (
     <Modal title="Новый чат" onClose={onClose}>
-      <p className="muted">Введите номер телефона получателя в Telegram.</p>
+      <p className="muted">Введите номер телефона получателя в WhatsApp.</p>
       <form onSubmit={submit}>
         <label htmlFor="phone">Номер телефона</label>
         <input
@@ -423,7 +425,7 @@ function NewChat({
       </form>
       {session.demo ? (
         <p className="small muted">
-          В деморежиме номер не проверяется в Telegram.
+          В деморежиме номер не проверяется в WhatsApp.
         </p>
       ) : null}
     </Modal>
@@ -479,7 +481,7 @@ function ChatView({
               ? 'Демо-собеседник'
               : chat.phone
                 ? `+${chat.phone}`
-                : 'Личный чат Telegram'}
+                : 'Личный чат WhatsApp'}
           </span>
         </div>
       </header>
@@ -522,7 +524,7 @@ function ChatView({
                       <div className="message-failure">
                         <span>
                           {message.error ||
-                            'Telegram не подтвердил доставку. Проверьте чат перед повтором.'}
+                            'WhatsApp не подтвердил доставку. Проверьте чат перед повтором.'}
                         </span>
                         <button
                           disabled={busy}

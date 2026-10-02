@@ -49,7 +49,7 @@ function loadSnapshot(raw: string | null): Snapshot {
       if (message.status === 'pending') {
         message.status = 'failed';
         message.error =
-          'Отправка не подтверждена. Проверьте Telegram перед повтором.';
+          'Отправка не подтверждена. Проверьте WhatsApp перед повтором.';
       }
     }
   }
@@ -62,7 +62,7 @@ export class ChatStore {
   private earlyStatuses = new Map<string, MessageStatus>();
   constructor(
     private readonly storage?: LocalStorage,
-    private readonly key = 'telegram-chat',
+    private readonly key = 'whatsapp-chat',
   ) {
     if (storage) {
       try {
@@ -172,7 +172,11 @@ export class ChatStore {
     if (kind === 'outgoingMessageStatus') {
       const rawStatus = str(body.status);
       const status = (
-        ['noAccount', 'notInGroup'].includes(rawStatus) ? 'failed' : rawStatus
+        ['noAccount', 'notInGroup', 'suspended', 'yellowCard'].includes(
+          rawStatus,
+        )
+          ? 'failed'
+          : rawStatus
       ) as MessageStatus;
       if (!id || !['sent', 'delivered', 'read', 'failed'].includes(status))
         return;
@@ -194,6 +198,8 @@ export class ChatStore {
     const sender = obj(body.senderData);
     if (sender.chatType && sender.chatType !== 'user') return;
     const chatId = str(sender.chatId);
+    if (!/^\d+@(c\.us|lid)$/.test(chatId) && !chatId.startsWith('demo-'))
+      return;
     const data = obj(body.messageData);
     const text =
       data.typeMessage === 'textMessage'
@@ -203,11 +209,19 @@ export class ChatStore {
           ? str(obj(data.extendedTextMessageData).text)
           : '';
     if (!id || !chatId || !text) return;
-    const existing = this.snapshot.chats.find((chat) => chat.id === chatId);
-    if (existing?.messages.some((message) => message.id === id)) return;
-    const phone = sender.senderPhoneNumber
+    const rawPhone = sender.senderPhoneNumber
       ? String(sender.senderPhoneNumber)
       : '';
+    const phone = /^\d{7,15}$/.test(rawPhone)
+      ? rawPhone
+      : chatId.endsWith('@c.us')
+        ? chatId.slice(0, -5)
+        : '';
+    // With lid mode disabled, WhatsApp may echo a resolved lid as phone@c.us.
+    const existing = this.snapshot.chats.find(
+      (chat) => chat.id === chatId || (phone && chat.phone === phone),
+    );
+    if (existing?.messages.some((message) => message.id === id)) return;
     const name =
       str(sender.senderContactName) ||
       str(sender.senderName) ||
@@ -231,13 +245,13 @@ export class ChatStore {
       ...chat,
       name: outgoing ? chat.name : name,
       phone: chat.phone || phone,
-      unread: chat.unread + (!outgoing && activeId !== chatId ? 1 : 0),
+      unread: chat.unread + (!outgoing && activeId !== chat.id ? 1 : 0),
       messages: [...chat.messages, message],
     };
     this.commit(
       existing
         ? this.snapshot.chats.map((chat) =>
-            chat.id === chatId ? updated : chat,
+            chat.id === updated.id ? updated : chat,
           )
         : [...this.snapshot.chats, updated],
     );

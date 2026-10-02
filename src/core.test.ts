@@ -4,24 +4,24 @@ import { ChatStore } from './store';
 import { pollNotifications } from './polling';
 
 const credentials = {
-  apiUrl: 'https://4100.api.green-api.com',
-  idInstance: '4100123456',
+  apiUrl: 'https://1103.api.green-api.com',
+  idInstance: '1103123456',
   apiTokenInstance: 'test-token',
 };
 const incoming = {
   typeWebhook: 'incomingMessageReceived',
-  instanceData: { typeInstance: 'telegram', idInstance: 4100123456 },
+  instanceData: { typeInstance: 'whatsapp', idInstance: 1103123456 },
   idMessage: 'remote-1',
   timestamp: 1760000000,
   senderData: {
-    chatId: '123456',
-    chatType: 'user',
+    chatId: '123456@lid',
+    sender: '123456@lid',
     senderName: 'Анна',
     senderPhoneNumber: 79991234567,
   },
   messageData: {
     typeMessage: 'textMessage',
-    textMessageData: { textMessage: 'Ответ из Telegram' },
+    textMessageData: { textMessage: 'Ответ из WhatsApp' },
   },
 };
 
@@ -53,17 +53,17 @@ describe('GREEN-API contract', () => {
     expect(() =>
       validateCredentials({
         ...credentials,
-        apiUrl: 'http://4100.api.green-api.com',
+        apiUrl: 'http://1103.api.green-api.com',
       }),
     ).toThrow();
     expect(() =>
       validateCredentials({
         ...credentials,
-        apiUrl: 'https://4100.api.green-api.com/path',
+        apiUrl: 'https://1103.api.green-api.com/path',
       }),
     ).toThrow();
   });
-  it('uses resolved Telegram chatId, JSON POST, and notification DELETE', async () => {
+  it('uses resolved WhatsApp chatId, JSON POST, and notification DELETE', async () => {
     const requests: { url: string; init?: RequestInit }[] = [];
     const transport = vi.fn(
       async (url: string | URL | Request, init?: RequestInit) => {
@@ -78,47 +78,50 @@ describe('GREEN-API contract', () => {
       },
     );
     const api = new GreenApi(credentials, transport);
-    expect(await api.sendMessage('123456', 'Привет')).toBe('42');
+    expect(await api.sendMessage('123456@lid', 'Привет')).toBe('42');
     await api.deleteNotification(17);
     expect(requests[0].url).toBe(
-      'https://4100.api.green-api.com/waInstance4100123456/sendMessage/test-token',
+      'https://1103.api.green-api.com/waInstance1103123456/sendMessage/test-token',
     );
     expect(requests[0].init?.method).toBe('POST');
     expect(JSON.parse(String(requests[0].init?.body))).toEqual({
-      chatId: '123456',
+      chatId: '123456@lid',
       message: 'Привет',
     });
     expect(requests[1].url).toContain('/deleteNotification/test-token/17');
     expect(requests[1].init?.method).toBe('DELETE');
   });
-  it('resolves an international phone through Telegram CheckAccount', async () => {
+  it('resolves an international phone through WhatsApp CheckWhatsapp', async () => {
     const transport = vi.fn(
       async (_url: string | URL | Request, _init?: RequestInit) =>
-        new Response('{"exist":true,"chatId":"10000000"}'),
+        new Response('{"existsWhatsapp":true,"chatId":"10000000@lid"}'),
     );
     const api = new GreenApi(credentials, transport);
-    expect(await api.checkAccount('+1 202 555 0123')).toBe('10000000');
+    expect(await api.checkAccount('+1 202 555 0123')).toBe('10000000@lid');
     expect(transport.mock.calls[0]).toEqual([
-      'https://4100.api.green-api.com/waInstance4100123456/checkAccount/test-token',
+      'https://1103.api.green-api.com/waInstance1103123456/checkWhatsapp/test-token',
       expect.objectContaining({
         method: 'POST',
-        body: '{"phoneNumber":12025550123}',
+        body: '{"chatId":"12025550123@c.us"}',
       }),
     ]);
   });
-  it('explains Telegram search limits in an HTTP 200 response', async () => {
-    const api = new GreenApi(
+  it('supports older CheckWhatsapp responses and rejects invalid chat addresses', async () => {
+    const legacy = new GreenApi(
       credentials,
-      vi.fn(
-        async () =>
-          new Response(
-            '{"status":false,"data":{"status":"fail","reason":"rate_limit_exceeded","retryAfter":120}}',
-          ),
-      ),
+      vi.fn(async () => new Response('{"existsWhatsapp":true}')),
     );
-    await expect(api.checkAccount('79991234567')).rejects.toThrow(
-      /ограничил поиск/,
-    );
+    expect(await legacy.checkAccount('79991234567')).toBe('79991234567@c.us');
+    for (const chatId of ['123456', '123456@g.us', 'status@broadcast']) {
+      const api = new GreenApi(
+        credentials,
+        vi.fn(
+          async () =>
+            new Response(JSON.stringify({ existsWhatsapp: true, chatId })),
+        ),
+      );
+      await expect(api.checkAccount('79991234567')).rejects.toThrow(/адрес/);
+    }
   });
   it('handles empty polling responses and checks that the instance is authorized', async () => {
     const api = new GreenApi(
@@ -135,11 +138,13 @@ describe('GREEN-API contract', () => {
   it('rejects absent recipients and overlong/empty messages before sending', async () => {
     const api = new GreenApi(
       credentials,
-      vi.fn(async () => new Response('{"exist":false,"chatId":""}')),
+      vi.fn(async () => new Response('{"existsWhatsapp":false}')),
     );
-    await expect(api.checkAccount('79991234567')).rejects.toThrow(/Telegram/);
-    await expect(api.sendMessage('123456', ' ')).rejects.toThrow();
-    await expect(api.sendMessage('123456', 'x'.repeat(4001))).rejects.toThrow();
+    await expect(api.checkAccount('79991234567')).rejects.toThrow(/WhatsApp/);
+    await expect(api.sendMessage('123456@lid', ' ')).rejects.toThrow();
+    await expect(
+      api.sendMessage('123456@lid', 'x'.repeat(4001)),
+    ).rejects.toThrow();
   });
   it('gives useful errors without exposing token or server body', async () => {
     const api = new GreenApi(
@@ -152,10 +157,10 @@ describe('GREEN-API contract', () => {
 });
 
 describe('chat state', () => {
-  it('treats Telegram noAccount as a visible sending failure', () => {
+  it('treats WhatsApp noAccount as a visible sending failure', () => {
     const store = new ChatStore();
-    store.createChat('123456', '79991234567');
-    store.addMessage('123456', {
+    store.createChat('123456@lid', '79991234567');
+    store.addMessage('123456@lid', {
       id: '42',
       text: 'Привет',
       direction: 'outgoing',
@@ -166,26 +171,82 @@ describe('chat state', () => {
       {
         typeWebhook: 'outgoingMessageStatus',
         idMessage: '42',
-        chatId: '123456',
+        chatId: '123456@lid',
         status: 'noAccount',
       },
       null,
     );
     expect(store.getSnapshot().chats[0].messages[0].status).toBe('failed');
   });
-  it('routes incoming Telegram IDs to the chat resolved from a phone, deduplicates and persists', () => {
+  it('shows instance restrictions as failure and never downgrades a read receipt', () => {
+    const store = new ChatStore();
+    store.createChat('123456@lid', '79991234567');
+    store.addMessage('123456@lid', {
+      id: '42',
+      text: 'Текст',
+      direction: 'outgoing',
+      timestamp: 1760000000,
+      status: 'queued',
+    });
+    const notice = {
+      typeWebhook: 'outgoingMessageStatus',
+      idMessage: '42',
+      chatId: '123456@lid',
+    };
+    store.applyNotification({ ...notice, status: 'suspended' }, null);
+    expect(store.getSnapshot().chats[0].messages[0].status).toBe('failed');
+    store.applyNotification({ ...notice, status: 'read' }, null);
+    store.applyNotification({ ...notice, status: 'delivered' }, null);
+    store.applyNotification({ ...notice, status: 'failed' }, null);
+    expect(store.getSnapshot().chats[0].messages[0].status).toBe('read');
+  });
+  it('routes incoming WhatsApp IDs to the chat resolved from a phone, deduplicates and persists', () => {
     const storage = { getItem: vi.fn(() => null), setItem: vi.fn() };
     const store = new ChatStore(storage, 'test');
-    store.createChat('123456', '79991234567');
+    store.createChat('123456@lid', '79991234567');
     store.applyNotification(incoming, null);
     store.applyNotification(incoming, null);
     expect(store.getSnapshot().chats).toHaveLength(1);
     expect(store.getSnapshot().chats[0].messages).toHaveLength(1);
     expect(store.getSnapshot().chats[0].unread).toBe(1);
     expect(store.getSnapshot().chats[0].messages[0].text).toBe(
-      'Ответ из Telegram',
+      'Ответ из WhatsApp',
     );
     expect(storage.setItem).toHaveBeenCalled();
+  });
+  it('routes c.us replies to a resolved lid chat without duplicating the conversation', () => {
+    const store = new ChatStore();
+    store.createChat('123456@lid', '79991234567');
+    const reply = {
+      ...incoming,
+      senderData: { chatId: '79991234567@c.us', senderName: 'Анна' },
+    };
+    store.applyNotification(reply, '123456@lid');
+    store.applyNotification(reply, '123456@lid');
+    const chats = store.getSnapshot().chats;
+    expect(chats).toHaveLength(1);
+    expect(chats[0].id).toBe('123456@lid');
+    expect(chats[0].messages).toHaveLength(1);
+    expect(chats[0].unread).toBe(0);
+  });
+  it('ignores groups and broadcasts even when WhatsApp omits chatType', () => {
+    const store = new ChatStore();
+    for (const chatId of [
+      '123456@g.us',
+      'status@broadcast',
+      '123456@newsletter',
+    ])
+      store.applyNotification({ ...incoming, senderData: { chatId } }, null);
+    expect(store.getSnapshot().chats).toHaveLength(0);
+  });
+  it('derives a phone from c.us but never from an opaque lid', () => {
+    const store = new ChatStore();
+    for (const chatId of ['79991234567@c.us', '123456@lid'])
+      store.applyNotification({ ...incoming, senderData: { chatId } }, null);
+    expect(store.getSnapshot().chats.map((chat) => chat.phone)).toEqual([
+      '79991234567',
+      '',
+    ]);
   });
   it('does not commit an incoming message if local persistence fails', () => {
     const store = new ChatStore(
@@ -202,8 +263,8 @@ describe('chat state', () => {
   });
   it('reconciles API echo received before send response without duplicate bubbles', () => {
     const store = new ChatStore();
-    store.createChat('123456', '79991234567');
-    store.addMessage('123456', {
+    store.createChat('123456@lid', '79991234567');
+    store.addMessage('123456@lid', {
       id: 'local',
       text: 'Привет',
       direction: 'outgoing',
@@ -214,11 +275,12 @@ describe('chat state', () => {
       {
         ...incoming,
         typeWebhook: 'outgoingAPIMessageReceived',
+        senderData: { chatId: '79991234567@c.us' },
         idMessage: '42',
       },
-      '123456',
+      '123456@lid',
     );
-    store.updateMessage('123456', 'local', { id: '42', status: 'queued' });
+    store.updateMessage('123456@lid', 'local', { id: '42', status: 'queued' });
     expect(store.getSnapshot().chats[0].messages).toHaveLength(1);
   });
   it('renders links as text and ignores unsupported files without creating empty bubbles', () => {

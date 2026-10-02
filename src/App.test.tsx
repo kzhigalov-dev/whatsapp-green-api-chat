@@ -94,7 +94,7 @@ it('preserves the draft and does not send when local history cannot be saved', a
 });
 
 it('completes the assignment flow with a GREEN-API transport and stores no token', async () => {
-  const maxKey = 'max-chat:v1:https://4100.api.green-api.com:4100123456';
+  const maxKey = 'max-chat:v1:https://1103.api.green-api.com:1103123456';
   const oldHistory = JSON.stringify({
     chats: [
       {
@@ -107,6 +107,9 @@ it('completes the assignment flow with a GREEN-API transport and stores no token
     ],
   });
   window.localStorage.setItem(maxKey, oldHistory);
+  const telegramKey =
+    'telegram-chat:v1:https://1103.api.green-api.com:1103123456';
+  window.localStorage.setItem(telegramKey, oldHistory);
   let replyReady = false;
   let consumed = false;
   const requests: string[] = [];
@@ -117,15 +120,15 @@ it('completes the assignment flow with a GREEN-API transport and stores no token
       body = { stateInstance: 'authorized' };
     if (url.includes('getSettings'))
       body = { incomingWebhook: 'yes', webhookUrl: '' };
-    if (url.includes('checkAccount')) {
+    if (url.includes('checkWhatsapp')) {
       expect(JSON.parse(String(init.body))).toEqual({
-        phoneNumber: 79991234567,
+        chatId: '79991234567@c.us',
       });
-      body = { exist: true, chatId: '123456' };
+      body = { existsWhatsapp: true, chatId: '123456@lid' };
     }
     if (url.includes('sendMessage')) {
       expect(JSON.parse(String(init.body))).toEqual({
-        chatId: '123456',
+        chatId: '123456@lid',
         message: 'Привет из браузера',
       });
       replyReady = true;
@@ -137,12 +140,11 @@ it('completes the assignment flow with a GREEN-API transport and stores no token
         receiptId: 17,
         body: {
           typeWebhook: 'incomingMessageReceived',
-          instanceData: { typeInstance: 'telegram', idInstance: 4100123456 },
+          instanceData: { typeInstance: 'whatsapp', idInstance: 1103123456 },
           idMessage: 'reply',
           timestamp: Date.now() / 1000,
           senderData: {
-            chatId: '123456',
-            chatType: 'user',
+            chatId: '79991234567@c.us',
             senderName: 'Анна',
           },
           messageData: {
@@ -158,14 +160,14 @@ it('completes the assignment flow with a GREEN-API transport and stores no token
   vi.stubGlobal('fetch', transport);
   const user = userEvent.setup();
   render(<App />);
-  await user.type(screen.getByLabelText('idInstance'), '4100123456');
+  await user.type(screen.getByLabelText('idInstance'), '1103123456');
   await user.type(
     screen.getByLabelText('apiTokenInstance'),
     'private-test-token',
   );
   await user.type(
     screen.getByLabelText('apiUrl'),
-    'https://4100.api.green-api.com',
+    'https://1103.api.green-api.com',
   );
   await user.click(screen.getByRole('button', { name: 'Подключиться' }));
   await user.click(await screen.findByRole('button', { name: 'Новый чат' }));
@@ -188,13 +190,14 @@ it('completes the assignment flow with a GREEN-API transport and stores no token
     ).toBe(true),
   );
   expect(window.localStorage.getItem(maxKey)).toBe(oldHistory);
-  const telegramHistory = JSON.parse(
+  expect(window.localStorage.getItem(telegramKey)).toBe(oldHistory);
+  const whatsappHistory = JSON.parse(
     window.localStorage.getItem(
-      'telegram-chat:v1:https://4100.api.green-api.com:4100123456',
+      'whatsapp-chat:v1:https://1103.api.green-api.com:1103123456',
     ) ?? 'null',
   );
-  expect(telegramHistory.chats).toHaveLength(1);
-  expect(telegramHistory.chats[0].messages).toHaveLength(2);
+  expect(whatsappHistory.chats).toHaveLength(1);
+  expect(whatsappHistory.chats[0].messages).toHaveLength(2);
   expect(Object.values(window.localStorage).join('')).not.toContain(
     'private-test-token',
   );
@@ -211,8 +214,8 @@ it('keeps failed text in chat, explains the error and allows explicit retry', as
         return new Response('{"stateInstance":"authorized"}');
       if (url.includes('getSettings'))
         return new Response('{"incomingWebhook":"yes","webhookUrl":""}');
-      if (url.includes('checkAccount'))
-        return new Response('{"exist":true,"chatId":"123"}');
+      if (url.includes('checkWhatsapp'))
+        return new Response('{"existsWhatsapp":true,"chatId":"123@lid"}');
       if (url.includes('sendMessage'))
         return ++sends === 1
           ? new Response('', { status: 500 })
@@ -222,11 +225,11 @@ it('keeps failed text in chat, explains the error and allows explicit retry', as
   );
   const user = userEvent.setup();
   render(<App />);
-  await user.type(screen.getByLabelText('idInstance'), '4100123456');
+  await user.type(screen.getByLabelText('idInstance'), '1103123456');
   await user.type(screen.getByLabelText('apiTokenInstance'), 'token');
   await user.type(
     screen.getByLabelText('apiUrl'),
-    'https://4100.api.green-api.com',
+    'https://1103.api.green-api.com',
   );
   await user.click(screen.getByRole('button', { name: 'Подключиться' }));
   await user.click(await screen.findByRole('button', { name: 'Новый чат' }));
@@ -253,7 +256,7 @@ it('keeps failed text in chat, explains the error and allows explicit retry', as
   expect(sends).toBe(2);
 });
 
-it('shows Telegram delivery errors without a message ID and acknowledges them without guessing', async () => {
+it('shows WhatsApp delivery errors without a message ID and acknowledges them without guessing', async () => {
   const store = new ChatStore();
   store.createChat('10000000', '79991234567', 'Анна');
   for (const id of ['first', 'second'])
@@ -291,7 +294,7 @@ it('shows Telegram delivery errors without a message ID and acknowledges them wi
     />,
   );
   expect((await screen.findByRole('alert')).textContent).toContain(
-    'Telegram не смог отправить',
+    'WhatsApp не смог отправить',
   );
   await waitFor(() =>
     expect(remove).toHaveBeenCalledWith(20, expect.any(AbortSignal)),

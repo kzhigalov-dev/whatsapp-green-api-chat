@@ -36,7 +36,7 @@ export function validateCredentials(input: Credentials): Credentials {
     url.pathname !== '/'
   ) {
     throw new Error(
-      'apiUrl должен быть HTTPS-адресом API GREEN-API, например https://4100.api.green-api.com.',
+      'apiUrl должен быть HTTPS-адресом API GREEN-API, например https://1103.api.green-api.com.',
     );
   }
   return { apiUrl: url.origin, idInstance, apiTokenInstance };
@@ -102,7 +102,7 @@ export class GreenApi implements ChatApi {
           403: 'Доступ запрещён. Проверьте токен, тариф и ограничения аккаунта.',
           466: 'Достигнут лимит тарифа. Проверьте ограничения инстанса в GREEN-API.',
           429: 'Слишком много запросов. Подождите немного.',
-          469: 'Telegram временно ограничил поиск по номеру. Повторите позже.',
+          469: 'GREEN-API временно ограничил проверку номера. Повторите позже.',
         };
         throw new ApiError(
           messages[response.status] ??
@@ -139,7 +139,7 @@ export class GreenApi implements ChatApi {
     );
     if (result?.stateInstance !== 'authorized')
       throw new Error(
-        'Инстанс не авторизован. Привяжите аккаунт Telegram в личном кабинете GREEN-API.',
+        'Инстанс не авторизован. Привяжите аккаунт WhatsApp в личном кабинете GREEN-API.',
       );
     const settings = await this.request<{
       webhookUrl?: string;
@@ -156,33 +156,25 @@ export class GreenApi implements ChatApi {
   }
 
   async checkAccount(phone: string, signal?: AbortSignal): Promise<string> {
+    const normalized = normalizePhone(phone);
     const result = await this.request<{
-      exist?: boolean;
+      existsWhatsapp?: boolean;
       chatId?: string;
-      status?: boolean;
-      data?: { reason?: string };
     } | null>(
-      'checkAccount',
+      'checkWhatsapp',
       'POST',
-      { phoneNumber: Number(normalizePhone(phone)) },
+      { chatId: `${normalized}@c.us` },
       signal,
     );
-    if (
-      result?.status === false &&
-      result.data?.reason === 'rate_limit_exceeded'
-    )
+    if (result?.existsWhatsapp !== true)
       throw new Error(
-        'Telegram временно ограничил поиск по номеру. Повторите позже.',
+        'Аккаунт WhatsApp не найден. Проверьте номер получателя.',
       );
-    if (result?.status === false)
-      throw new Error(
-        'Telegram не смог проверить номер. Проверьте авторизацию инстанса или повторите позже.',
-      );
-    if (!result?.exist || !result.chatId)
-      throw new Error(
-        'Аккаунт Telegram не найден или поиск по номеру ограничен настройками получателя.',
-      );
-    return String(result.chatId);
+    // Older instances return only existsWhatsapp; newer ones resolve a lid.
+    const chatId = result.chatId || `${normalized}@c.us`;
+    if (!/^\d+@(c\.us|lid)$/.test(chatId))
+      throw new Error('GREEN-API вернул некорректный адрес личного чата.');
+    return chatId;
   }
 
   async sendMessage(
