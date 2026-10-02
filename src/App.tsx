@@ -4,7 +4,7 @@ import {
   Eye,
   EyeOff,
   HelpCircle,
-  KeyRound,
+  MessageCircle,
   ShieldCheck,
 } from 'lucide-react';
 import { GreenApi, errorText } from './api';
@@ -70,137 +70,124 @@ function Login({ onConnect }: { onConnect: (session: Session) => void }) {
   }
 
   return (
-    <main className="login-page">
-      <header className="login-top">
-        <div className="brand">
-          <Logo small />
-          <strong>MAX</strong>
-          <span className="brand-divider" />
-          <span className="muted small">через GREEN-API</span>
+    <main className="messenger login-page">
+      <aside className="sidebar login-sidebar" aria-label="Чаты до подключения">
+        <header className="sidebar-header">
+          <div className="brand">
+            <Logo small />
+            <strong>MAX</strong>
+          </div>
+        </header>
+        <div className="list-heading">Ваши чаты</div>
+        <div className="disconnected-list">
+          <MessageCircle size={24} strokeWidth={1.5} />
+          <p>Здесь начнётся переписка</p>
+          <span>Подключите аккаунт, чтобы создать чат по номеру телефона.</span>
         </div>
-        <button className="text-button" onClick={() => setHelp(true)}>
-          <HelpCircle size={18} /> Как подключиться
-        </button>
-      </header>
-      <div className="login-layout">
-        <section className="login-intro">
-          <span className="eyebrow">
-            <span className="connection-dot" /> ПРОСТО БЫТЬ НА СВЯЗИ
-          </span>
-          <h1>
-            Ваш MAX.
-            <br />
-            <span>В новом окне.</span>
-          </h1>
-          <p>
-            Знакомый чат, только самое нужное.
-            <br />
-            Отправляйте сообщения и получайте ответы
-            <br className="desktop-only" /> прямо в браузере.
-          </p>
-          <div className="chat-illustration" aria-hidden="true">
-            <div className="illustration-day">Сегодня</div>
-            <div className="illustration-bubble incoming">
-              Привет! Ты на связи? <span>12:04</span>
-            </div>
-            <div className="illustration-bubble outgoing">
-              Да, теперь и здесь 👋{' '}
-              <span>
-                12:05 <span>✓✓</span>
-              </span>
-            </div>
-            <div className="illustration-bubble incoming">
-              Тогда до встречи! <span>12:05</span>
-            </div>
+        <footer className="sidebar-footer">
+          <div className="account-info">
+            <span className="connection-dot disconnected" />
+            <span>
+              Аккаунт не подключён<small>Сообщения через GREEN-API</small>
+            </span>
           </div>
-          <div className="intro-footer">
-            <ShieldCheck size={19} />
-            <span>Токен остаётся только в памяти этой вкладки</span>
+        </footer>
+      </aside>
+      <div className="connection-panel">
+        <header className="connection-header">
+          <div className="brand mobile-brand">
+            <Logo small />
+            <strong>MAX</strong>
           </div>
-        </section>
-        <section className="login-card" aria-labelledby="login-heading">
-          <span className="key-icon">
-            <KeyRound size={24} />
-          </span>
-          <h2 id="login-heading">Подключите аккаунт</h2>
-          <p className="muted">Введите данные инстанса из GREEN-API</p>
-          <form onSubmit={submit}>
-            <label htmlFor="instance">idInstance</label>
-            <input
-              id="instance"
-              value={idInstance}
-              onChange={(event) => setId(event.target.value)}
-              placeholder="Например, 3100123456"
-              inputMode="numeric"
-              autoComplete="off"
-              required
-              disabled={busy}
-            />
-            <label htmlFor="token">apiTokenInstance</label>
-            <div className="password-field">
+          <span className="connection-heading">Подключение к MAX</span>
+          <button className="text-button" onClick={() => setHelp(true)}>
+            <HelpCircle size={18} /> Как подключиться
+          </button>
+        </header>
+        <div className="connection-content">
+          <section className="login-card" aria-labelledby="login-heading">
+            <h1 id="login-heading">Подключите аккаунт</h1>
+            <p className="muted">Данные вашего инстанса GREEN-API</p>
+            <form onSubmit={submit}>
+              <label htmlFor="instance">idInstance</label>
               <input
-                id="token"
-                value={apiTokenInstance}
-                onChange={(event) => setToken(event.target.value)}
-                type={showToken ? 'text' : 'password'}
-                placeholder="Ключ доступа к инстансу"
+                id="instance"
+                value={idInstance}
+                onChange={(event) => setId(event.target.value)}
+                placeholder="Например, 3100123456"
+                inputMode="numeric"
                 autoComplete="off"
                 required
                 disabled={busy}
               />
-              <button
-                type="button"
-                className="icon-button"
-                aria-label={showToken ? 'Скрыть токен' : 'Показать токен'}
-                onClick={() => setShowToken(!showToken)}
-              >
-                {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
+              <label htmlFor="token">apiTokenInstance</label>
+              <div className="password-field">
+                <input
+                  id="token"
+                  value={apiTokenInstance}
+                  onChange={(event) => setToken(event.target.value)}
+                  type={showToken ? 'text' : 'password'}
+                  placeholder="Ключ доступа к инстансу"
+                  autoComplete="off"
+                  required
+                  disabled={busy}
+                />
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={showToken ? 'Скрыть токен' : 'Показать токен'}
+                  onClick={() => setShowToken(!showToken)}
+                >
+                  {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              <label htmlFor="api-url">apiUrl</label>
+              <input
+                id="api-url"
+                value={apiUrl}
+                onChange={(event) => setUrl(event.target.value)}
+                placeholder="https://3100.api.green-api.com"
+                type="url"
+                autoComplete="off"
+                required
+                disabled={busy}
+              />
+              <p className="field-hint">
+                Адрес API из карточки вашего инстанса
+              </p>
+              {error ? <ErrorNotice message={error} /> : null}
+              <button className="primary" disabled={busy} type="submit">
+                {busy ? 'Подключаемся…' : 'Подключиться'}
+                <ArrowRight size={18} />
               </button>
+            </form>
+            <div className="or-divider">
+              <span>или</span>
             </div>
-            <label htmlFor="api-url">apiUrl</label>
-            <input
-              id="api-url"
-              value={apiUrl}
-              onChange={(event) => setUrl(event.target.value)}
-              placeholder="https://3100.api.green-api.com"
-              type="url"
-              autoComplete="off"
-              required
+            <button
+              className="secondary demo-button"
               disabled={busy}
-            />
-            <p className="field-hint">Адрес API из карточки вашего инстанса</p>
-            {error ? <ErrorNotice message={error} /> : null}
-            <button className="primary" disabled={busy} type="submit">
-              {busy ? 'Подключаемся…' : 'Подключиться'}
-              <ArrowRight size={18} />
+              onClick={() =>
+                onConnect({
+                  api: new DemoApi(),
+                  store: createDemoStore(),
+                  demo: true,
+                  idInstance: 'demo',
+                })
+              }
+            >
+              Открыть демочат
             </button>
-          </form>
-          <div className="or-divider">
-            <span>или</span>
-          </div>
-          <button
-            className="secondary demo-button"
-            disabled={busy}
-            onClick={() =>
-              onConnect({
-                api: new DemoApi(),
-                store: createDemoStore(),
-                demo: true,
-                idInstance: 'demo',
-              })
-            }
-          >
-            Открыть демочат
-          </button>
-          <p className="card-note muted">
-            Без регистрации и реальных сообщений
-          </p>
-        </section>
+            <p className="card-note muted">
+              Без регистрации и реальных сообщений
+            </p>
+            <p className="privacy-note">
+              <ShieldCheck size={16} /> Токен хранится только в памяти этой
+              вкладки
+            </p>
+          </section>
+        </div>
       </div>
-      <footer className="login-footer">
-        <span>Текстовые сообщения. Ничего лишнего.</span>
-        <span>React · GREEN-API</span>
-      </footer>
       {help ? <SetupGuide onClose={() => setHelp(false)} /> : null}
     </main>
   );

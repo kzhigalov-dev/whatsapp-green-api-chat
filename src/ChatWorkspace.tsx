@@ -315,16 +315,16 @@ export function ChatWorkspace({
             <div className="empty-logo">
               <Logo />
             </div>
-            <h1>Начните с простого «Привет»</h1>
+            <h1>Выберите чат или создайте новый</h1>
             <p>
-              Создайте чат по номеру телефона
-              <br />и будьте на связи в MAX.
+              Для новой переписки понадобится
+              <br />
+              номер телефона получателя в MAX.
             </p>
             <button className="primary" onClick={() => setNewChat(true)}>
               <Plus size={18} />
               Создать первый чат
             </button>
-            <span className="small muted">Только текст. Только общение.</span>
           </div>
         )}
       </section>
@@ -464,7 +464,6 @@ function ChatView({
                 : 'Личный чат MAX'}
           </span>
         </div>
-        <span className="header-label">Текстовые сообщения</span>
       </header>
       <div
         className="message-scroll"
