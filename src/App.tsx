@@ -54,7 +54,7 @@ function Login({ onConnect }: { onConnect: (session: Session) => void }) {
       if (controller.signal.aborted) return;
       const store = new ChatStore(
         window.localStorage,
-        `max-chat:v1:${api.credentials.apiUrl}:${api.credentials.idInstance}`,
+        `telegram-chat:v1:${api.credentials.apiUrl}:${api.credentials.idInstance}`,
       );
       onConnect({
         api,
@@ -75,7 +75,7 @@ function Login({ onConnect }: { onConnect: (session: Session) => void }) {
         <header className="sidebar-header">
           <div className="brand">
             <Logo small />
-            <strong>MAX</strong>
+            <strong>Telegram</strong>
           </div>
         </header>
         <div className="list-heading">Ваши чаты</div>
@@ -97,9 +97,9 @@ function Login({ onConnect }: { onConnect: (session: Session) => void }) {
         <header className="connection-header">
           <div className="brand mobile-brand">
             <Logo small />
-            <strong>MAX</strong>
+            <strong>Telegram</strong>
           </div>
-          <span className="connection-heading">Подключение к MAX</span>
+          <span className="connection-heading">Подключение к Telegram</span>
           <button className="text-button" onClick={() => setHelp(true)}>
             <HelpCircle size={18} /> Как подключиться
           </button>
@@ -114,7 +114,7 @@ function Login({ onConnect }: { onConnect: (session: Session) => void }) {
                 id="instance"
                 value={idInstance}
                 onChange={(event) => setId(event.target.value)}
-                placeholder="Например, 3100123456"
+                placeholder="Например, 4100123456"
                 inputMode="numeric"
                 autoComplete="off"
                 required
@@ -146,7 +146,7 @@ function Login({ onConnect }: { onConnect: (session: Session) => void }) {
                 id="api-url"
                 value={apiUrl}
                 onChange={(event) => setUrl(event.target.value)}
-                placeholder="https://3100.api.green-api.com"
+                placeholder="https://4100.api.green-api.com"
                 type="url"
                 autoComplete="off"
                 required

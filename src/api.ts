@@ -1,15 +1,14 @@
 import type { ChatApi, Credentials, Notification } from './types';
 
 export function normalizePhone(value: string): string {
-  if (!/^[+\d\s()\-]+$/.test(value))
+  const input = value.trim();
+  if (!/^\+?[\d\s()\-]+$/.test(input))
     throw new Error('Введите номер телефона в международном формате.');
-  let phone = value.replace(/\D/g, '');
-  if (phone.length === 11 && phone.startsWith('8'))
+  let phone = input.replace(/\D/g, '');
+  if (!input.startsWith('+') && phone.length === 11 && phone.startsWith('8'))
     phone = '7' + phone.slice(1);
-  if (!/^(7\d{10}|375\d{9})$/.test(phone))
-    throw new Error(
-      'Укажите номер РФ (+7) или Беларуси (+375), включая код страны.',
-    );
+  if (!/^[1-9]\d{6,14}$/.test(phone))
+    throw new Error('Укажите номер с кодом страны: от 7 до 15 цифр.');
   return phone;
 }
 
@@ -37,7 +36,7 @@ export function validateCredentials(input: Credentials): Credentials {
     url.pathname !== '/'
   ) {
     throw new Error(
-      'apiUrl должен быть HTTPS-адресом API GREEN-API, например https://3100.api.green-api.com.',
+      'apiUrl должен быть HTTPS-адресом API GREEN-API, например https://4100.api.green-api.com.',
     );
   }
   return { apiUrl: url.origin, idInstance, apiTokenInstance };
@@ -101,8 +100,9 @@ export class GreenApi implements ChatApi {
           400: 'Проверьте параметры запроса и настройки инстанса. Для получения сообщений webhookUrl должен быть пустым.',
           401: 'Проверьте idInstance и apiTokenInstance в личном кабинете.',
           403: 'Доступ запрещён. Проверьте токен, тариф и ограничения аккаунта.',
+          466: 'Достигнут лимит тарифа. Проверьте ограничения инстанса в GREEN-API.',
           429: 'Слишком много запросов. Подождите немного.',
-          469: 'MAX временно ограничил поиск по номеру. Повторите позже.',
+          469: 'Telegram временно ограничил поиск по номеру. Повторите позже.',
         };
         throw new ApiError(
           messages[response.status] ??
@@ -139,7 +139,7 @@ export class GreenApi implements ChatApi {
     );
     if (result?.stateInstance !== 'authorized')
       throw new Error(
-        'Инстанс не авторизован. Привяжите аккаунт MAX в личном кабинете GREEN-API.',
+        'Инстанс не авторизован. Привяжите аккаунт Telegram в личном кабинете GREEN-API.',
       );
     const settings = await this.request<{
       webhookUrl?: string;
@@ -160,19 +160,27 @@ export class GreenApi implements ChatApi {
       exist?: boolean;
       chatId?: string;
       status?: boolean;
+      data?: { reason?: string };
     } | null>(
       'checkAccount',
       'POST',
       { phoneNumber: Number(normalizePhone(phone)) },
       signal,
     );
+    if (
+      result?.status === false &&
+      result.data?.reason === 'rate_limit_exceeded'
+    )
+      throw new Error(
+        'Telegram временно ограничил поиск по номеру. Повторите позже.',
+      );
     if (result?.status === false)
       throw new Error(
-        'MAX не смог проверить номер. Проверьте авторизацию инстанса или повторите позже.',
+        'Telegram не смог проверить номер. Проверьте авторизацию инстанса или повторите позже.',
       );
     if (!result?.exist || !result.chatId)
       throw new Error(
-        'Аккаунт MAX не найден или поиск по номеру ограничен настройками получателя.',
+        'Аккаунт Telegram не найден или поиск по номеру ограничен настройками получателя.',
       );
     return String(result.chatId);
   }

@@ -77,7 +77,23 @@ export function ChatWorkspace({
     const controller = new AbortController();
     void pollNotifications(
       api,
-      (body) => store.applyNotification(body, active.current),
+      (body) => {
+        store.applyNotification(body, active.current);
+        // Telegram can report failure without an idMessage. Show the error
+        // without guessing which local message it belongs to.
+        if (body && typeof body === 'object') {
+          const notice = body as Record<string, unknown>;
+          if (
+            notice.typeWebhook === 'outgoingMessageStatus' &&
+            !notice.idMessage &&
+            ['failed', 'noAccount'].includes(String(notice.status))
+          ) {
+            setActionError(
+              'Telegram не смог отправить сообщение. Проверьте переписку, аккаунт получателя и его настройки приватности перед повтором.',
+            );
+          }
+        }
+      },
       controller.signal,
       (error) => {
         if (!controller.signal.aborted) setPollError(error);
@@ -162,7 +178,7 @@ export function ChatWorkspace({
         <header className="sidebar-header">
           <div className="brand">
             <Logo small />
-            <strong>MAX</strong>
+            <strong>Telegram</strong>
             {demo ? <span className="demo-tag">ДЕМО</span> : null}
           </div>
           <button
@@ -276,7 +292,7 @@ export function ChatWorkspace({
             <span className="connection-dot" />
             <span>Деморежим. Собеседник отвечает автоматически.</span>
             <button onClick={onLogout}>
-              Подключить MAX <span aria-hidden="true">↗</span>
+              Подключить Telegram <span aria-hidden="true">↗</span>
             </button>
           </div>
         ) : null}
@@ -319,7 +335,7 @@ export function ChatWorkspace({
             <p>
               Для новой переписки понадобится
               <br />
-              номер телефона получателя в MAX.
+              номер телефона получателя в Telegram.
             </p>
             <button className="primary" onClick={() => setNewChat(true)}>
               <Plus size={18} />
@@ -384,7 +400,7 @@ function NewChat({
   }
   return (
     <Modal title="Новый чат" onClose={onClose}>
-      <p className="muted">Введите номер телефона получателя в MAX.</p>
+      <p className="muted">Введите номер телефона получателя в Telegram.</p>
       <form onSubmit={submit}>
         <label htmlFor="phone">Номер телефона</label>
         <input
@@ -398,7 +414,7 @@ function NewChat({
           required
           disabled={busy}
         />
-        <p className="field-hint">Номера РФ (+7) и Беларуси (+375)</p>
+        <p className="field-hint">Международный формат с кодом страны</p>
         {error ? <ErrorNotice message={error} /> : null}
         <button className="primary" disabled={busy}>
           {busy ? 'Ищем получателя…' : 'Создать чат'}
@@ -406,7 +422,9 @@ function NewChat({
         </button>
       </form>
       {session.demo ? (
-        <p className="small muted">В деморежиме номер не проверяется в MAX.</p>
+        <p className="small muted">
+          В деморежиме номер не проверяется в Telegram.
+        </p>
       ) : null}
     </Modal>
   );
@@ -461,7 +479,7 @@ function ChatView({
               ? 'Демо-собеседник'
               : chat.phone
                 ? `+${chat.phone}`
-                : 'Личный чат MAX'}
+                : 'Личный чат Telegram'}
           </span>
         </div>
       </header>
@@ -504,7 +522,7 @@ function ChatView({
                       <div className="message-failure">
                         <span>
                           {message.error ||
-                            'MAX не подтвердил доставку. Проверьте чат перед повтором.'}
+                            'Telegram не подтвердил доставку. Проверьте чат перед повтором.'}
                         </span>
                         <button
                           disabled={busy}

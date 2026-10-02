@@ -94,6 +94,19 @@ it('preserves the draft and does not send when local history cannot be saved', a
 });
 
 it('completes the assignment flow with a GREEN-API transport and stores no token', async () => {
+  const maxKey = 'max-chat:v1:https://4100.api.green-api.com:4100123456';
+  const oldHistory = JSON.stringify({
+    chats: [
+      {
+        id: 'old-max',
+        name: 'MAX',
+        phone: '79990000000',
+        unread: 0,
+        messages: [],
+      },
+    ],
+  });
+  window.localStorage.setItem(maxKey, oldHistory);
   let replyReady = false;
   let consumed = false;
   const requests: string[] = [];
@@ -104,7 +117,12 @@ it('completes the assignment flow with a GREEN-API transport and stores no token
       body = { stateInstance: 'authorized' };
     if (url.includes('getSettings'))
       body = { incomingWebhook: 'yes', webhookUrl: '' };
-    if (url.includes('checkAccount')) body = { exist: true, chatId: '123456' };
+    if (url.includes('checkAccount')) {
+      expect(JSON.parse(String(init.body))).toEqual({
+        phoneNumber: 79991234567,
+      });
+      body = { exist: true, chatId: '123456' };
+    }
     if (url.includes('sendMessage')) {
       expect(JSON.parse(String(init.body))).toEqual({
         chatId: '123456',
@@ -119,6 +137,7 @@ it('completes the assignment flow with a GREEN-API transport and stores no token
         receiptId: 17,
         body: {
           typeWebhook: 'incomingMessageReceived',
+          instanceData: { typeInstance: 'telegram', idInstance: 4100123456 },
           idMessage: 'reply',
           timestamp: Date.now() / 1000,
           senderData: {
@@ -139,14 +158,14 @@ it('completes the assignment flow with a GREEN-API transport and stores no token
   vi.stubGlobal('fetch', transport);
   const user = userEvent.setup();
   render(<App />);
-  await user.type(screen.getByLabelText('idInstance'), '3100123456');
+  await user.type(screen.getByLabelText('idInstance'), '4100123456');
   await user.type(
     screen.getByLabelText('apiTokenInstance'),
     'private-test-token',
   );
   await user.type(
     screen.getByLabelText('apiUrl'),
-    'https://3100.api.green-api.com',
+    'https://4100.api.green-api.com',
   );
   await user.click(screen.getByRole('button', { name: 'Подключиться' }));
   await user.click(await screen.findByRole('button', { name: 'Новый чат' }));
@@ -168,6 +187,14 @@ it('completes the assignment flow with a GREEN-API transport and stores no token
       ),
     ).toBe(true),
   );
+  expect(window.localStorage.getItem(maxKey)).toBe(oldHistory);
+  const telegramHistory = JSON.parse(
+    window.localStorage.getItem(
+      'telegram-chat:v1:https://4100.api.green-api.com:4100123456',
+    ) ?? 'null',
+  );
+  expect(telegramHistory.chats).toHaveLength(1);
+  expect(telegramHistory.chats[0].messages).toHaveLength(2);
   expect(Object.values(window.localStorage).join('')).not.toContain(
     'private-test-token',
   );
@@ -195,11 +222,11 @@ it('keeps failed text in chat, explains the error and allows explicit retry', as
   );
   const user = userEvent.setup();
   render(<App />);
-  await user.type(screen.getByLabelText('idInstance'), '3100123456');
+  await user.type(screen.getByLabelText('idInstance'), '4100123456');
   await user.type(screen.getByLabelText('apiTokenInstance'), 'token');
   await user.type(
     screen.getByLabelText('apiUrl'),
-    'https://3100.api.green-api.com',
+    'https://4100.api.green-api.com',
   );
   await user.click(screen.getByRole('button', { name: 'Подключиться' }));
   await user.click(await screen.findByRole('button', { name: 'Новый чат' }));
@@ -224,4 +251,52 @@ it('keeps failed text in chat, explains the error and allows explicit retry', as
     ).toBeNull(),
   );
   expect(sends).toBe(2);
+});
+
+it('shows Telegram delivery errors without a message ID and acknowledges them without guessing', async () => {
+  const store = new ChatStore();
+  store.createChat('10000000', '79991234567', 'Анна');
+  for (const id of ['first', 'second'])
+    store.addMessage('10000000', {
+      id,
+      text: id,
+      direction: 'outgoing',
+      timestamp: 1760000000,
+      status: 'queued',
+    });
+  let received = false;
+  const remove = vi.fn(async () => {});
+  const api: ChatApi = {
+    connect: async () => {},
+    checkAccount: async () => '10000000',
+    sendMessage: async () => 'remote',
+    receiveNotification: async () => {
+      if (received) return null;
+      received = true;
+      return {
+        receiptId: 20,
+        body: {
+          typeWebhook: 'outgoingMessageStatus',
+          chatId: '10000000',
+          status: 'noAccount',
+        },
+      };
+    },
+    deleteNotification: remove,
+  };
+  render(
+    <ChatWorkspace
+      session={{ api, store, demo: true, idInstance: 'demo' }}
+      onLogout={() => {}}
+    />,
+  );
+  expect((await screen.findByRole('alert')).textContent).toContain(
+    'Telegram не смог отправить',
+  );
+  await waitFor(() =>
+    expect(remove).toHaveBeenCalledWith(20, expect.any(AbortSignal)),
+  );
+  expect(
+    store.getSnapshot().chats[0].messages.map((message) => message.status),
+  ).toEqual(['queued', 'queued']);
 });

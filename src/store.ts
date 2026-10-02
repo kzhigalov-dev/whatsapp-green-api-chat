@@ -49,7 +49,7 @@ function loadSnapshot(raw: string | null): Snapshot {
       if (message.status === 'pending') {
         message.status = 'failed';
         message.error =
-          'Отправка не подтверждена. Проверьте MAX перед повтором.';
+          'Отправка не подтверждена. Проверьте Telegram перед повтором.';
       }
     }
   }
@@ -62,7 +62,7 @@ export class ChatStore {
   private earlyStatuses = new Map<string, MessageStatus>();
   constructor(
     private readonly storage?: LocalStorage,
-    private readonly key = 'max-chat',
+    private readonly key = 'telegram-chat',
   ) {
     if (storage) {
       try {

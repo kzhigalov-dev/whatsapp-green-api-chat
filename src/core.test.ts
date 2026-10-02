@@ -4,12 +4,13 @@ import { ChatStore } from './store';
 import { pollNotifications } from './polling';
 
 const credentials = {
-  apiUrl: 'https://3100.api.green-api.com',
-  idInstance: '3100123456',
+  apiUrl: 'https://4100.api.green-api.com',
+  idInstance: '4100123456',
   apiTokenInstance: 'test-token',
 };
 const incoming = {
   typeWebhook: 'incomingMessageReceived',
+  instanceData: { typeInstance: 'telegram', idInstance: 4100123456 },
   idMessage: 'remote-1',
   timestamp: 1760000000,
   senderData: {
@@ -20,17 +21,27 @@ const incoming = {
   },
   messageData: {
     typeMessage: 'textMessage',
-    textMessageData: { textMessage: 'Ответ из MAX' },
+    textMessageData: { textMessage: 'Ответ из Telegram' },
   },
 };
 
 describe('GREEN-API contract', () => {
-  it('normalizes formatted Russian/Belarusian numbers and rejects malformed input', () => {
+  it('normalizes international numbers without rewriting explicit country codes', () => {
     expect(normalizePhone('+7 (999) 123-45-67')).toBe('79991234567');
     expect(normalizePhone('8 999 123 45 67')).toBe('79991234567');
     expect(normalizePhone('+375 29 123 45 67')).toBe('375291234567');
     expect(() => normalizePhone('abc79991234567')).toThrow();
-    expect(() => normalizePhone('+1 202 555 0123')).toThrow();
+    expect(normalizePhone('+1 202 555 0123')).toBe('12025550123');
+    expect(normalizePhone('+81 90 1234 567')).toBe('81901234567');
+    expect(normalizePhone('+7 701 123 45 67')).toBe('77011234567');
+    for (const value of [
+      '+012345678',
+      '123',
+      '1234567890123456',
+      '7+9991234567',
+      '++79991234567',
+    ])
+      expect(() => normalizePhone(value)).toThrow();
   });
   it('prevents tokens being sent to arbitrary origins', () => {
     expect(() =>
@@ -42,17 +53,17 @@ describe('GREEN-API contract', () => {
     expect(() =>
       validateCredentials({
         ...credentials,
-        apiUrl: 'http://3100.api.green-api.com',
+        apiUrl: 'http://4100.api.green-api.com',
       }),
     ).toThrow();
     expect(() =>
       validateCredentials({
         ...credentials,
-        apiUrl: 'https://3100.api.green-api.com/path',
+        apiUrl: 'https://4100.api.green-api.com/path',
       }),
     ).toThrow();
   });
-  it('uses resolved MAX chatId, JSON POST, and notification DELETE', async () => {
+  it('uses resolved Telegram chatId, JSON POST, and notification DELETE', async () => {
     const requests: { url: string; init?: RequestInit }[] = [];
     const transport = vi.fn(
       async (url: string | URL | Request, init?: RequestInit) => {
@@ -70,7 +81,7 @@ describe('GREEN-API contract', () => {
     expect(await api.sendMessage('123456', 'Привет')).toBe('42');
     await api.deleteNotification(17);
     expect(requests[0].url).toBe(
-      'https://3100.api.green-api.com/waInstance3100123456/sendMessage/test-token',
+      'https://4100.api.green-api.com/waInstance4100123456/sendMessage/test-token',
     );
     expect(requests[0].init?.method).toBe('POST');
     expect(JSON.parse(String(requests[0].init?.body))).toEqual({
@@ -79,6 +90,35 @@ describe('GREEN-API contract', () => {
     });
     expect(requests[1].url).toContain('/deleteNotification/test-token/17');
     expect(requests[1].init?.method).toBe('DELETE');
+  });
+  it('resolves an international phone through Telegram CheckAccount', async () => {
+    const transport = vi.fn(
+      async (_url: string | URL | Request, _init?: RequestInit) =>
+        new Response('{"exist":true,"chatId":"10000000"}'),
+    );
+    const api = new GreenApi(credentials, transport);
+    expect(await api.checkAccount('+1 202 555 0123')).toBe('10000000');
+    expect(transport.mock.calls[0]).toEqual([
+      'https://4100.api.green-api.com/waInstance4100123456/checkAccount/test-token',
+      expect.objectContaining({
+        method: 'POST',
+        body: '{"phoneNumber":12025550123}',
+      }),
+    ]);
+  });
+  it('explains Telegram search limits in an HTTP 200 response', async () => {
+    const api = new GreenApi(
+      credentials,
+      vi.fn(
+        async () =>
+          new Response(
+            '{"status":false,"data":{"status":"fail","reason":"rate_limit_exceeded","retryAfter":120}}',
+          ),
+      ),
+    );
+    await expect(api.checkAccount('79991234567')).rejects.toThrow(
+      /ограничил поиск/,
+    );
   });
   it('handles empty polling responses and checks that the instance is authorized', async () => {
     const api = new GreenApi(
@@ -97,7 +137,7 @@ describe('GREEN-API contract', () => {
       credentials,
       vi.fn(async () => new Response('{"exist":false,"chatId":""}')),
     );
-    await expect(api.checkAccount('79991234567')).rejects.toThrow(/MAX/);
+    await expect(api.checkAccount('79991234567')).rejects.toThrow(/Telegram/);
     await expect(api.sendMessage('123456', ' ')).rejects.toThrow();
     await expect(api.sendMessage('123456', 'x'.repeat(4001))).rejects.toThrow();
   });
@@ -112,7 +152,7 @@ describe('GREEN-API contract', () => {
 });
 
 describe('chat state', () => {
-  it('treats MAX noAccount as a visible sending failure', () => {
+  it('treats Telegram noAccount as a visible sending failure', () => {
     const store = new ChatStore();
     store.createChat('123456', '79991234567');
     store.addMessage('123456', {
@@ -133,7 +173,7 @@ describe('chat state', () => {
     );
     expect(store.getSnapshot().chats[0].messages[0].status).toBe('failed');
   });
-  it('routes incoming MAX IDs to the chat resolved from a phone, deduplicates and persists', () => {
+  it('routes incoming Telegram IDs to the chat resolved from a phone, deduplicates and persists', () => {
     const storage = { getItem: vi.fn(() => null), setItem: vi.fn() };
     const store = new ChatStore(storage, 'test');
     store.createChat('123456', '79991234567');
@@ -142,7 +182,9 @@ describe('chat state', () => {
     expect(store.getSnapshot().chats).toHaveLength(1);
     expect(store.getSnapshot().chats[0].messages).toHaveLength(1);
     expect(store.getSnapshot().chats[0].unread).toBe(1);
-    expect(store.getSnapshot().chats[0].messages[0].text).toBe('Ответ из MAX');
+    expect(store.getSnapshot().chats[0].messages[0].text).toBe(
+      'Ответ из Telegram',
+    );
     expect(storage.setItem).toHaveBeenCalled();
   });
   it('does not commit an incoming message if local persistence fails', () => {

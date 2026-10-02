@@ -14,10 +14,12 @@ export function Logo({ small = false }: { small?: boolean }) {
     <span className={`logo ${small ? 'logo-small' : ''}`} aria-hidden="true">
       <svg viewBox="0 0 64 64">
         <path
-          d="M46 30c0 11-7 19-18 19h-6l-8 6V30c0-11 7-19 16-19s16 8 16 19Z"
+          d="M13 30 51 15 43 49 30 39 23 45 25 34 43 23 29 36Z"
           fill="currentColor"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinejoin="round"
         />
-        <circle cx="30" cy="30" r="10" fill="#5278f4" />
       </svg>
     </span>
   );
@@ -108,22 +110,24 @@ export function SetupGuide({ onClose }: { onClose: () => void }) {
   return (
     <Modal title="Подключение GREEN-API" onClose={onClose}>
       <p className="muted">
-        Для реальной переписки понадобится аккаунт MAX и авторизованный инстанс.
+        Для реальной переписки понадобится аккаунт Telegram и авторизованный
+        инстанс.
       </p>
       <ol className="setup-steps">
         <li>
-          <strong>Создайте инстанс MAX</strong>
+          <strong>Создайте инстанс Telegram</strong>
           <p>
             Зарегистрируйтесь в личном кабинете GREEN-API, нажмите «Создать
-            инстанс» и выберите мессенджер MAX и подходящий тариф.
+            инстанс» и выберите «Telegram: Developer».
           </p>
         </li>
         <li>
           <strong>Привяжите аккаунт</strong>
           <p>
-            Следуйте инструкции авторизации в кабинете. Для QR-кода: MAX →
-            Профиль → Устройства → Войти по QR-коду. Дождитесь статуса
-            authorized.
+            В кабинете нажмите «Получить QR-код». На телефоне: Telegram →
+            Настройки → Устройства → Подключить устройство. Отсканируйте код и
+            дождитесь статуса authorized. Если запрошен облачный пароль, введите
+            его только в кабинете GREEN-API.
           </p>
         </li>
         <li>
@@ -144,7 +148,7 @@ export function SetupGuide({ onClose }: { onClose: () => void }) {
       </ol>
       <a
         className="primary button-link"
-        href="https://green-api.com/v3/docs/before-start/"
+        href="https://green-api.com/telegram/docs/before-start/"
         target="_blank"
         rel="noreferrer"
       >
